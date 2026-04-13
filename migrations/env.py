@@ -1,5 +1,11 @@
 from db.database import Base
 from models.salao import Salao
+from models.cliente import Cliente
+from models.profissional_servico import ProfissionalServico
+from models.servico import Servico
+from models.profissional import Profissional
+from models.agendamento import Agendamento
+
 
 import asyncio
 from logging.config import fileConfig
