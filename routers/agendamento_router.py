@@ -29,6 +29,27 @@ async def criar_agendamento(agendamento_data: AgendamentoCreate, db: AsyncSessio
 
     # Calcular data_hora_fim
     data_hora_fim = agendamento_data.data_hora_inicio + timedelta(minutes=servico_db.tempo_estimado_minutos)
+    from sqlalchemy import and_, or_
+
+    # Verificar choque de horários (Double Booking)
+    conflito_query = select(Agendamento).where(
+        Agendamento.id_profissional == agendamento_data.id_profissional,
+        Agendamento.status != "Cancelado",  # Ignora os horários cancelados
+        # Lógica de intersecção de tempo:
+        and_(
+            Agendamento.data_hora_inicio < data_hora_fim,
+            Agendamento.data_hora_fim > agendamento_data.data_hora_inicio
+        )
+    )
+
+    conflito_result = await db.execute(conflito_query)
+    agendamento_conflitante = conflito_result.scalar_one_or_none()
+
+    if agendamento_conflitante:
+        raise HTTPException(
+            status_code=400,
+            detail="O profissional já possui um agendamento neste horário."
+        )
 
     novo_agendamento = Agendamento(
         id_cliente=agendamento_data.id_cliente,
