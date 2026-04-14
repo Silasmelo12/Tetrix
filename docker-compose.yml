@@ -1,7 +1,9 @@
+version: '3.9'
+
 services:
   db:
     image: postgres:15
-    container_name: tetrix_db_container
+    container_name: postgres_container
     restart: always
     environment:
       POSTGRES_USER: postgres
@@ -11,6 +13,54 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - tetrix-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis_container
+    restart: always
+    networks:
+      - tetrix-net
+
+  evolution-api:
+    container_name: evolution_api
+    image: atendai/evolution-api:latest
+    environment:
+      - DOCKER_RESTART_POLICY=always
+      - SERVER_TYPE=http
+      - SERVER_PORT=8080
+      - CONFIG_SESSION_PHONE_VERSION=2.3000.1037225082
+    restart: always
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+    networks:
+      - tetrix-net
+
+  evolution_manager:
+    image: node:20
+    container_name: evolution_manager
+    restart: always
+    ports:
+      - "8081:8080"
+    environment:
+      # Apontando para a sua API internamente
+      - VITE_EVOLUTION_API_URL=http://evolution_api:8080
+    # O comando mágico que resolve tudo isolado no Linux:
+    command: bash -c "rm -rf /app && git clone https://github.com/EvolutionAPI/evolution-manager-v2.git /app && cd /app && npm install && npm run build && npm run preview -- --host 0.0.0.0 --port 8080"
+    depends_on:
+      - evolution-api
+    networks:
+      - tetrix-net
 
 volumes:
   postgres_data:
+
+networks:
+  tetrix-net:
+    driver: bridge
